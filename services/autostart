@@ -1,0 +1,7 @@
+# The built-in services ownervisor starts at boot (enabled/NAME markers); the others are defined but started by hand.
+# dropbear: the ssh server (port 2222, keys only, zsh as the login shell; authorized_keys in /private/var/ngpu/ssh).
+dropbear
+# selftest: ownertest, proof that an owner-trusted binary spawns another under AMFI.
+selftest
+# serial-shell is not here: a login shell on /dev/console works only on a platform whose kernel console is a UART the host
+# can reach, which UniXNU-droidvm's is not yet (its /dev/console discards output and never reads input).

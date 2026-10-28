@@ -1,0 +1,12 @@
+{
+  "exec": [
+    "/private/var/ngpu/bin/dropbear",
+    "-F",
+    "-E",
+    "-R",
+    "-p",
+    "2222"
+  ],
+  "keepalive": true,
+  "throttle": 5
+}

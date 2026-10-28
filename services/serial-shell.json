@@ -1,0 +1,15 @@
+{
+  "exec": [
+    "/private/var/ngpu/bin/zsh",
+    "-c",
+    "exec </dev/console >/dev/console 2>&1; exec /private/var/ngpu/bin/zsh -l"
+  ],
+  "uid": 0,
+  "keepalive": true,
+  "throttle": 5,
+  "env": {
+    "PATH": "/private/var/ngpu/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "TERM": "vt100",
+    "HOME": "/var/root"
+  }
+}

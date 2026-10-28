@@ -1,0 +1,8 @@
+{
+  "exec": [
+    "/private/var/ngpu/bin/ownertest",
+    "boot"
+  ],
+  "keepalive": true,
+  "throttle": 10
+}
