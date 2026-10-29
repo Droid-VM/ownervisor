@@ -23,6 +23,10 @@ import sys
 import tarfile
 import urllib.request
 from pathlib import Path
+# DROIDVM_IOS_TARGET picks the build: arm64-apple-ios17.0 (the default) or arm64e-apple-ios27.0 (iPadOS 27 runs no arm64 platform
+# binaries: it killed them at exec).
+TARGET = os.environ.get('DROIDVM_IOS_TARGET', 'arm64-apple-ios17.0')
+ARCH, IOS = TARGET.split('-', 1)[0], TARGET.rsplit('ios', 1)[1]
 
 TAG = 'zsh-118'  # zsh 5.9
 URL = f'https://github.com/apple-oss-distributions/zsh/archive/refs/tags/{TAG}.tar.gz'
@@ -56,7 +60,7 @@ for header in ('curses.h', 'ncurses.h', 'ncurses_dll.h', 'term.h', 'termcap.h', 
     '#pragma once\n#include <sys/types.h>\n#define CS_OPS_STATUS 0\n#define CS_INSTALLER 0x00000008\n'
     'int csops(pid_t pid, unsigned int ops, void *useraddr, size_t usersize);\n')
 cc = WORK / 'ios-clang'
-cc.write_text(f'#!/bin/sh\nexec xcrun -sdk iphoneos clang -arch arm64 -miphoneos-version-min=17.0 -isysroot {iphone_sdk} -I{shim} "$@"\n')
+cc.write_text(f'#!/bin/sh\nexec xcrun -sdk iphoneos clang -arch {ARCH} -miphoneos-version-min={IOS} -isysroot {iphone_sdk} -I{shim} "$@"\n')
 cc.chmod(0o755)
 
 src = top / 'zsh'
@@ -87,5 +91,5 @@ cdhash = re.search(r'^CDHash=([a-f0-9]{40})$', detail, re.M)[1]
 
 (OUT / 'record.json').write_text(json.dumps(
     {'binaries': {'zsh': cdhash},
-     'source': f'apple-oss-distributions/zsh {TAG} (zsh 5.9), iphoneos arm64, static modules'}, indent=2) + '\n')
+     'source': f'apple-oss-distributions/zsh {TAG} (zsh 5.9), iphoneos {ARCH}, static modules'}, indent=2) + '\n')
 print('zsh CDHash', cdhash)

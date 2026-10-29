@@ -26,11 +26,16 @@ system-task-ports*, set-exception-port, network server/client, ...) like applebo
 
 Needs the iphoneos + macOS SDKs, git, mig and codesign (the build Mac)."""
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+# DROIDVM_IOS_TARGET picks the build: arm64-apple-ios17.0 (the default) or arm64e-apple-ios27.0 (iPadOS 27 runs no arm64 platform
+# binaries: it killed them at exec).
+TARGET = os.environ.get('DROIDVM_IOS_TARGET', 'arm64-apple-ios17.0')
+ARCH, IOS = TARGET.split('-', 1)[0], TARGET.rsplit('ios', 1)[1]
 
 TAG = 'llvmorg-19.1.7'
 REPO = 'https://github.com/llvm/llvm-project.git'
@@ -96,9 +101,9 @@ vers.write_text(
 shutil.copyfile(Path(mac_sdk) / 'usr/include/mach/mach_vm.h', SHIM / 'mach/mach_vm.h')
 shimmed = {'mach/mach_vm.h'}
 
-CXX = ['xcrun', 'clang++', '-target', 'arm64-apple-ios17.0', '-isysroot', ios_sdk,
+CXX = ['xcrun', 'clang++', '-target', TARGET, '-isysroot', ios_sdk,
        '-std=c++17', '-fno-objc-arc', '-DLLDB_USE_OS_LOG']
-CC = ['xcrun', 'clang', '-target', 'arm64-apple-ios17.0', '-isysroot', ios_sdk, '-DLLDB_USE_OS_LOG']
+CC = ['xcrun', 'clang', '-target', TARGET, '-isysroot', ios_sdk, '-DLLDB_USE_OS_LOG']
 INCS = ['-I' + str(SRC), '-I' + str(SRC / 'MacOSX'), '-I' + str(SRC / 'MacOSX/arm64'),
         '-I' + str(MIGOUT), '-I' + str(SHIM), '-I' + str(LLDB_INC)]
 
@@ -149,7 +154,7 @@ lib.unlink(missing_ok=True)
 subprocess.run(['xcrun', 'ar', 'rcs', str(lib), *map(str, common)], check=True)
 binary = OUT / 'debugserver'
 binary.unlink(missing_ok=True)
-subprocess.run(['xcrun', 'clang++', '-target', 'arm64-apple-ios17.0', '-isysroot', ios_sdk,
+subprocess.run(['xcrun', 'clang++', '-target', TARGET, '-isysroot', ios_sdk,
                 str(main_o), str(lib), '-o', str(binary),
                 '-framework', 'Foundation', '-framework', 'CoreFoundation', '-framework', 'Security',
                 '-lcompression'], check=True)
@@ -163,5 +168,5 @@ cdhash = re.search(r'^CDHash=([a-f0-9]{40})$', detail, re.M)[1]
 
 (OUT / 'record.json').write_text(json.dumps(
     {'binaries': {'debugserver': cdhash},
-     'source': f'llvm-project {TAG} lldb/tools/debugserver, iphoneos arm64'}, indent=2) + '\n')
+     'source': f'llvm-project {TAG} lldb/tools/debugserver, iphoneos {ARCH}'}, indent=2) + '\n')
 print('debugserver CDHash', cdhash, 'size', binary.stat().st_size)

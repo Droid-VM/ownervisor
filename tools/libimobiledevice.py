@@ -29,6 +29,10 @@ import sys
 import tarfile
 import urllib.request
 from pathlib import Path
+# DROIDVM_IOS_TARGET picks the build: arm64-apple-ios17.0 (the default) or arm64e-apple-ios27.0 (iPadOS 27 runs no arm64 platform
+# binaries: it killed them at exec).
+TARGET = os.environ.get('DROIDVM_IOS_TARGET', 'arm64-apple-ios17.0')
+ARCH, IOS = TARGET.split('-', 1)[0], TARGET.rsplit('ios', 1)[1]
 
 OUT = Path(sys.argv[1]).resolve() if len(sys.argv) == 2 else sys.exit(__doc__)
 SRC, STAGE, OBJ = OUT / 'src', OUT / 'stage', OUT / 'obj'
@@ -59,9 +63,9 @@ LIBS = ['libimobiledevice-1.0.a', 'libusbmuxd-2.0.a', 'libimobiledevice-glue-1.0
 
 iphone_sdk = subprocess.check_output(['xcrun', '--sdk', 'iphoneos', '--show-sdk-path'], text=True).strip()
 clang = subprocess.check_output(['xcrun', '-f', 'clang'], text=True).strip()
-target = ['-arch', 'arm64', '-miphoneos-version-min=17.0', '-isysroot', iphone_sdk]
+target = ['-arch', ARCH, f'-miphoneos-version-min={IOS}', '-isysroot', iphone_sdk]
 S = str(STAGE)
-env = dict(os.environ, IPHONEOS_DEPLOYMENT_TARGET='17.0', CC=' '.join([clang, *target]),
+env = dict(os.environ, IPHONEOS_DEPLOYMENT_TARGET=IOS, CC=' '.join([clang, *target]),
            CXX=' '.join([clang + '++', *target]), PKG_CONFIG='/usr/bin/false',
            libplist_CFLAGS=f'-I{S}/include', libplist_LIBS=f'-L{S}/lib -lplist-2.0',
            limd_glue_CFLAGS=f'-I{S}/include', limd_glue_LIBS=f'-L{S}/lib -limobiledevice-glue-1.0',
@@ -126,8 +130,12 @@ for name, options in [('libplist', ['--without-cython', '--without-tests']), ('l
         env_ossl = dict(env, CROSS_TOP=subprocess.check_output(['xcode-select', '-p'], text=True).strip()
                         + '/Platforms/iPhoneOS.platform/Developer', CROSS_SDK='iPhoneOS.sdk')
         env_ossl.pop('CC'), env_ossl.pop('CXX')
-        for command, log in ((['./Configure', 'ios64-cross', 'no-shared', 'no-tests', 'no-engine', 'no-legacy', f'--prefix={S}',
-                               '-mios-version-min=17.0'], 'openssl-configure.log'),
+        # ios64-cross builds arm64 (its flags carry -arch arm64); for arm64e the generic iphoneos-cross target with the arch given,
+        # in portable C (no arm64 assembly scheme for it), all in CFLAGS (Configure takes make variables or extra flags, not both).
+        platform = (['ios64-cross', f'-mios-version-min={IOS}'] if ARCH == 'arm64' else
+                    ['iphoneos-cross', f'CFLAGS=-O2 -arch {ARCH} -mios-version-min={IOS}', 'no-asm'])
+        for command, log in ((['./Configure', *platform, 'no-shared', 'no-tests', 'no-engine', 'no-legacy', f'--prefix={S}'],
+                              'openssl-configure.log'),
                              (['make', f'-j{os.cpu_count() or 4}', 'build_libs'], 'openssl-make.log'),
                              (['make', 'install_dev'], 'openssl-install.log')):
             with open(OUT / log, 'w') as stream:
@@ -196,6 +204,6 @@ cdhash = re.search(r'^CDHash=([a-f0-9]{40})$', detail, re.M)[1]
 
 (OUT / 'record.json').write_text(json.dumps(
     {'binaries': {'libimobiledevice': cdhash}, 'links': {tool: 'libimobiledevice' for tool in TOOLS},
-     'source': ', '.join(f'{name} {version}' for name, (version, _, _) in SOURCES.items()) + ', iphoneos arm64, static'},
+     'source': ', '.join(f'{name} {version}' for name, (version, _, _) in SOURCES.items()) + f', iphoneos {ARCH}, static'},
     indent=2) + '\n')
 print('libimobiledevice CDHash', cdhash, 'size', binary.stat().st_size, 'tools', len(TOOLS))

@@ -24,6 +24,10 @@ import sys
 import tarfile
 import urllib.request
 from pathlib import Path
+# DROIDVM_IOS_TARGET picks the build: arm64-apple-ios17.0 (the default) or arm64e-apple-ios27.0 (iPadOS 27 runs no arm64 platform
+# binaries: it killed them at exec).
+TARGET = os.environ.get('DROIDVM_IOS_TARGET', 'arm64-apple-ios17.0')
+ARCH, IOS = TARGET.split('-', 1)[0], TARGET.rsplit('ios', 1)[1]
 
 TAG = 'DROPBEAR_2022.83'
 URL = f'https://github.com/mkj/dropbear/archive/refs/tags/{TAG}.tar.gz'
@@ -49,7 +53,7 @@ with tarfile.open(tarball) as t:
     t.extractall(WORK, filter='data')
 
 cc = WORK / 'ios-clang'
-cc.write_text(f'#!/bin/sh\nexec xcrun -sdk iphoneos clang -arch arm64 -miphoneos-version-min=17.0 -isysroot {iphone_sdk} "$@"\n')
+cc.write_text(f'#!/bin/sh\nexec xcrun -sdk iphoneos clang -arch {ARCH} -miphoneos-version-min={IOS} -isysroot {iphone_sdk} "$@"\n')
 cc.chmod(0o755)
 
 (src / 'localoptions.h').write_text(

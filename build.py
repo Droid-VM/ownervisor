@@ -24,6 +24,10 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+# DROIDVM_IOS_TARGET picks the build: arm64-apple-ios17.0 (the default) or arm64e-apple-ios27.0 (iPadOS 27 runs no arm64 platform
+# binaries: it killed them at exec).
+TARGET = os.environ.get('DROIDVM_IOS_TARGET', 'arm64-apple-ios17.0')
+ARCH, IOS = TARGET.split('-', 1)[0], TARGET.rsplit('ios', 1)[1]
 
 HERE = Path(__file__).resolve().parent
 PARTS = ['manager', 'applebox', 'dropbear', 'zsh', 'debugserver', 'libimobiledevice']
@@ -42,7 +46,7 @@ def sign(binary, identifier, entitlements):
 
 def build_manager(out):
     sdk = subprocess.check_output(['xcrun', '--sdk', 'iphoneos', '--show-sdk-path'], text=True).strip()
-    base = ['xcrun', 'clang', '-target', 'arm64-apple-ios17.0', '-isysroot', sdk, '-O2', '-Wall', '-Wextra', '-Werror',
+    base = ['xcrun', 'clang', '-target', TARGET, '-isysroot', sdk, '-O2', '-Wall', '-Wextra', '-Werror',
             '-fobjc-arc', '-framework', 'Foundation']
     entitlements = out / 'entitlements.plist'
     entitlements.write_bytes(plistlib.dumps({'com.apple.private.security.no-container': True}))
@@ -74,7 +78,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('out', type=Path)
     parser.add_argument('--only', help='parts to build again, separated by commas')
-    parser.add_argument('--applebox', type=Path, help='a checkout of applebox to build instead of the pinned commit')
+    parser.add_argument('--applebox', type=Path, default=os.environ.get('APPLEBOX') or None,
+                        help='a checkout of applebox to build instead of the pinned commit (default: $APPLEBOX)')
     args = parser.parse_args()
     out = args.out.resolve()
     wanted = args.only.split(',') if args.only else PARTS
